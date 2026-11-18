@@ -1,0 +1,4 @@
+<!doctype html><body style="margin:0;background:#69ad4f"><canvas id=c></canvas><script src="src/pix.js"></script><script src="src/cats.js"></script><script>
+const S=8,cv=document.getElementById('c'),g=cv.getContext('2d');const coats=Object.keys(CATS.COATS);cv.width=22*10*S;cv.height=17*coats.length*S;g.imageSmoothingEnabled=false;
+coats.forEach((k,r)=>{const F=CATS.frames(k);const list=[...F.walk.map(a=>a[0]),F.sit[0][0],F.sit[1][0],F.sleep[0][0],F.sleep[1][0],F.work[0][0],F.walk[0][1]];list.forEach((c,i)=>g.drawImage(c,i*22*S,r*17*S,22*S,17*S));});
+</script>

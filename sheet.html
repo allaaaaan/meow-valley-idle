@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#241a2e"><canvas id=c></canvas>
+<script src="src/pix.js"></script><script src="src/parts.js"></script><script src="src/buildings.js"></script><script src="src/cats.js"></script><script src="src/fx.js"></script>
+<script>
+const T=BUILDINGS,types=['hall','bakery','fishery','yarn','inn'],Q=new URLSearchParams(location.search),S=+(Q.get('s')||3),night=Q.has('night');
+const cv=document.getElementById('c'),g=cv.getContext('2d');const cw=124,ch=118,lab=16,TOP=26,left=4;cv.width=(left+cw*6)*S;cv.height=(TOP+(ch+lab)*5+4)*S;
+const off=document.createElement('canvas');off.width=128;off.height=128;const o=off.getContext('2d');
+g.imageSmoothingEnabled=false;g.fillStyle='#241a2e';g.fillRect(0,0,cv.width,cv.height);
+g.font=`700 ${9*S}px "Noto Sans CJK SC",sans-serif`;g.fillStyle='#fff4dc';g.fillText(night?'喵喵谷 · 全部建筑 × 5 级（夜晚，窗户亮灯）— 全部由代码绘制':'喵喵谷 · 全部建筑 × 5 级（一致性检查）— 全部由代码绘制，无 AI 生图',6*S,16*S);
+types.forEach((t,r)=>{const y0=(TOP+r*(ch+lab))*S;
+ for(let L=0;L<=5;L++){const x0=(left+L*cw)*S;const b=L?T[t].build(L):T.empty();
+  o.clearRect(0,0,128,128);// cell backdrop: sky + grass (palette)
+  for(let y=0;y<128;y++){o.fillStyle=y>=112?(y===112?PIX.PAL[19]:PIX.PAL[18]):(night?(y<60?PIX.PAL[0]:PIX.PAL[12]):(y<60?PIX.PAL[15]:PIX.PAL[15]));o.fillRect(0,y,128,1);}
+  o.drawImage(b.s.toCanvas(),0,0);const m=b.meta;
+  m.flags.forEach(f=>FX.flag(o,f.x,f.y,f.col,0.2));if(m.fire)FX.fire(o,m.fire[0],m.fire[1],0.1);if(m.spin)FX.sails(o,m.spin.x,m.spin.y,m.spin.r,0.4);
+  if(night){o.globalCompositeOperation='source-atop';o.fillStyle='rgba(16,14,58,.6)';o.fillRect(0,0,128,128);o.globalCompositeOperation='source-over';o.drawImage(b.lit.toCanvas(),0,0);}
+  g.drawImage(off,2,10,cw,ch-2,x0,y0,cw*S,(ch-2)*S);g.strokeStyle='#241a2e';g.lineWidth=S;g.strokeRect(x0,y0,cw*S,(ch-2)*S);
+  g.fillStyle='#fff4dc';g.font=`600 ${7.5*S}px "Noto Sans CJK SC",sans-serif`;g.fillText(L?`${T[t].name} Lv${L} · ${T[t].desc[L-1]}`:`${T[t].name} · 空地`,x0+3*S,y0+(ch+9)*S);}
+});
+document.title='done';
+</script></body></html>

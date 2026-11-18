@@ -1,0 +1,82 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="喵喵谷">
+<meta name="theme-color" content="#241a2e">
+<meta name="description" content="一座会慢慢长大的山谷小镇。美术全部用代码画成。">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<title>喵喵谷</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;height:100dvh;height:-webkit-fill-available;overflow:hidden;overscroll-behavior:none;position:fixed;inset:0;background:#241a2e;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-serif;color:#241a2e;touch-action:none;-webkit-user-select:none;user-select:none}
+#cv{position:fixed;inset:0;display:block;touch-action:none}
+.pill{background:rgba(255,244,220,.94);border:2px solid #241a2e;border-radius:14px;box-shadow:0 3px 0 #241a2e}
+#top{position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);display:flex;gap:8px;align-items:center;pointer-events:none}
+#day{padding:6px 12px;font-weight:700;font-size:14px}
+#clock{padding:4px 8px;font-size:16px}
+#bwrap{margin-left:auto;display:flex;align-items:center;gap:4px;padding:2px 10px 2px 4px}
+#basket{width:64px;height:32px;image-rendering:pixelated}
+#basket-word{font-size:12px;font-weight:600}
+#hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 22px);padding:8px 14px;font-size:13px;white-space:nowrap;transition:opacity .6s}
+#hint.gone{opacity:0}
+#sheet{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 8px);padding:12px 14px 14px;transform:translateY(120%);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);border-radius:18px;overscroll-behavior:contain}
+#sheet.open{transform:none}
+#sh-x{position:absolute;right:10px;top:8px;border:0;background:none;font-size:20px;color:#241a2e}
+#sh-name{font-size:18px;font-weight:800}#sh-lv{font-size:13px;color:#8a5236;margin-left:6px;font-weight:600}
+#sh-line{font-size:13px;margin:6px 0 8px;line-height:1.45}
+.pv{display:flex;gap:10px;align-items:stretch}
+.pv canvas{image-rendering:pixelated;background:linear-gradient(#a9e0f0,#a9e0f0 70%,#69ad4f 70%);border:2px solid #241a2e;border-radius:10px;width:120px;height:96px}
+#nextbox{flex:1;font-size:12px;line-height:1.4}#nextbox canvas{width:100%;max-width:170px;height:96px}
+#nx-label{font-weight:700;margin:2px 0}
+#costbar{position:relative;height:10px;border:2px solid #241a2e;border-radius:6px;background:#d9bfa0;margin:8px 0 4px;overflow:visible}
+#costfill{position:absolute;left:0;top:0;bottom:0;background:#5fa3c8;border-radius:4px}
+#costmark{position:absolute;top:-5px;width:3px;height:16px;background:#e8577e;border:1px solid #241a2e}
+#sh-cost{font-size:12px}.why{color:#b8434a}
+#sh-progw{height:8px;border:2px solid #241a2e;border-radius:6px;margin:8px 0;background:#d9bfa0;overflow:hidden}#sh-prog{height:100%;background:#ffd34d}
+#sh-btn{width:100%;margin-top:8px;padding:12px;font-size:16px;font-weight:800;border:2px solid #241a2e;border-radius:12px;background:#ffa531;color:#241a2e;box-shadow:0 3px 0 #241a2e}
+#sh-btn:disabled{background:#cfc8cf;color:#6b6778}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 60px);transform:translate(-50%,-20px);opacity:0;padding:9px 14px;font-size:14px;font-weight:700;white-space:nowrap;background:#ffd34d}
+#toast.show{animation:toast 3.2s ease forwards}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,-20px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-10px)}}
+#diary{position:fixed;inset:0;background:rgba(36,26,46,.55);display:none;align-items:center;justify-content:center;padding:16px}
+#diary.open{display:flex}
+#dy-book{width:100%;max-width:380px;max-height:86vh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#fff4dc;border:3px solid #241a2e;border-radius:18px;box-shadow:0 5px 0 #241a2e;padding:16px 16px 14px;
+ background-image:repeating-linear-gradient(#fff4dc 0 27px,#f4d39a 27px 28px)}
+#dy-book h2{margin:0;font-size:20px}#dy-away{font-size:13px;color:#8a5236;margin:2px 0 10px}
+.dy-row{display:flex;gap:10px;align-items:center;margin:8px 0;animation:pop .5s both}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.vig{width:144px;height:88px;image-rendering:pixelated;border:2px solid #241a2e;border-radius:8px;flex:none}
+.dy-row p{margin:0;font-size:13.5px;line-height:1.45}
+#dy-foot{font-size:13px;margin:10px 0}
+#dy-ok{width:100%;padding:11px;font-size:16px;font-weight:800;border:2px solid #241a2e;border-radius:12px;background:#a6d65a;box-shadow:0 3px 0 #241a2e}
+#dbg-btn{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 56px);width:34px;height:34px;font-size:16px;padding:0}
+#dbg{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 96px);display:none;flex-direction:column;gap:6px}
+#dbg.open{display:flex}#dbg button{padding:7px 10px;font-size:13px;font-weight:600;text-align:left}
+body.rec *{transition:none!important}
+#cap{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:30px;padding:9px 16px;font-size:16px;font-weight:800;white-space:nowrap;background:#241a2e;color:#fff4dc;border-color:#fff4dc;box-shadow:none}
+body.rec #cap.on{display:block}body.rec #hint{display:none}body.rec #toast.vis{opacity:1;transform:translate(-50%,0)}
+</style></head><body>
+<canvas id="cv"></canvas>
+<div id="top"><div id="day" class="pill">喵喵谷</div><div id="clock" class="pill">☀️</div><div id="bwrap" class="pill"><canvas id="basket" width="64" height="32"></canvas><span id="basket-word"></span></div></div>
+<button id="dbg-btn" class="pill">⚙️</button>
+<div id="dbg"><button id="d-ff" class="pill">⏩ 快进 1 小时</button><button id="d-tod" class="pill">🌗 时间</button><button id="d-away" class="pill">🧳 模拟离开 3 小时</button><button id="d-reset" class="pill">↺ 重置小镇</button></div>
+<div id="hint" class="pill">👆 拖动看看山谷 · 双指缩放 · 点空地盖房子</div>
+<div id="toast" class="pill"></div><div id="cap" class="pill"></div>
+<div id="sheet" class="pill"><button id="sh-x">✕</button>
+ <div><span id="sh-name"></span><span id="sh-lv"></span></div><div id="sh-line"></div>
+ <div class="pv"><canvas id="pv-now" width="240" height="192"></canvas><div id="nextbox"><div id="nx-label"></div><canvas id="pv-next" width="340" height="192"></canvas><div id="nx-line"></div></div></div>
+ <div id="costbar"><div id="costfill"></div><div id="costmark"></div></div><div id="sh-cost"></div>
+ <div id="sh-progw" style="display:none"><div id="sh-prog"></div></div>
+ <button id="sh-btn">开工</button></div>
+<div id="diary"><div id="dy-book"><h2>📖 你不在的时候…</h2><div id="dy-away"></div><div id="dy-list"></div><div id="dy-foot"></div><button id="dy-ok">回到小镇</button></div></div>
+<script src="src/pix.js"></script><script src="src/parts.js"></script><script src="src/buildings.js"></script><script src="src/cats.js"></script><script src="src/fx.js"></script><script src="src/world.js"></script><script src="src/game.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js');});
+}
+</script>
+</body></html>
