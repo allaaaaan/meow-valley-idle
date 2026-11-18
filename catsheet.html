@@ -1,4 +1,67 @@
-<!doctype html><body style="margin:0;background:#69ad4f"><canvas id=c></canvas><script src="src/pix.js"></script><script src="src/cats.js"></script><script>
-const S=8,cv=document.getElementById('c'),g=cv.getContext('2d');const coats=Object.keys(CATS.COATS);cv.width=22*10*S;cv.height=17*coats.length*S;g.imageSmoothingEnabled=false;
-coats.forEach((k,r)=>{const F=CATS.frames(k);const list=[...F.walk.map(a=>a[0]),F.sit[0][0],F.sit[1][0],F.sleep[0][0],F.sleep[1][0],F.work[0][0],F.walk[0][1]];list.forEach((c,i)=>g.drawImage(c,i*22*S,r*17*S,22*S,17*S));});
-</script>
+<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<title>喵喵谷 · 角色表</title>
+<style>
+html,body{margin:0;background:#241a2e;color:#fff4dc;font-family:-apple-system,"PingFang SC",sans-serif}
+#wrap{padding:16px 16px 32px}
+h1{margin:0 0 8px;font-size:22px}
+p{margin:0 0 16px;font-size:13px;opacity:.85}
+canvas{image-rendering:pixelated;background:#3b2a40;display:block}
+</style></head><body>
+<div id="wrap"><h1>喵喵谷角色表</h1><p>全部用代码画成。每一行是一只猫，每一列是一个动作的帧。</p><canvas id=c></canvas></div>
+<script src="src/pix.js"></script>
+<script src="src/cats.js"></script>
+<script>
+const SCALE=4;
+const rows=[
+ {label:'年糕  白猫 · 圆滚滚', coat:'white', acc:'none', shape:'round'},
+ {label:'橘子  橘纹 · 铃铛', coat:'orange', acc:'bell', shape:'default'},
+ {label:'奶茶  三花 · 小花', coat:'calico', acc:'flower', shape:'default'},
+ {label:'小灰  灰纹 · 苗条', coat:'grey', acc:'none', shape:'slim'},
+ {label:'豆豆  暹罗 · 围巾', coat:'siamese', acc:'scarf', shape:'slim'},
+ {label:'煤球  黑猫', coat:'black', acc:'none', shape:'slim'},
+ {label:'燕尾  燕尾服 · 蝴蝶结', coat:'tuxedo', acc:'bow', shape:'default'},
+ {label:'工匠猫  ねじり鉢巻 · 木槌 · 短袢', coat:'builder', acc:'none', shape:'sturdy'},
+];
+const cols=[
+ {pose:'walk',    name:'走', n:6},
+ {pose:'idle',    name:'眨眼', n:6},
+ {pose:'flick',   name:'甩尾', n:4},
+ {pose:'sit',     name:'坐', n:4},
+ {pose:'stretch', name:'伸懒腰', n:4},
+ {pose:'groom',   name:'舔毛', n:6},
+ {pose:'sleep',   name:'睡', n:4},
+ {pose:'carry',   name:'扛木板', n:6},
+ {pose:'hammer',  name:'钉锤', n:6},
+];
+const cellW=CATS.SW+2, cellH=CATS.SH+2, labelW=210, headH=36;
+const frameCount=cols.reduce((a,c)=>a+c.n,0);
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+cv.width=(labelW+frameCount*cellW)*SCALE;
+cv.height=(headH+rows.length*cellH)*SCALE;
+g.imageSmoothingEnabled=false;
+g.fillStyle='#3b2a40';g.fillRect(0,0,cv.width,cv.height);
+g.scale(SCALE,SCALE);
+g.font='12px -apple-system,PingFang SC,sans-serif';
+g.fillStyle='#fff4dc';
+g.fillText('喵喵谷  ·  所有动作均为多帧，工匠猫只在施工时出现',8,16);
+// column headers
+let x=labelW;
+cols.forEach(col=>{
+  g.fillStyle='#ffd34d';g.fillText(col.name,x+2,headH-6);
+  x+=col.n*cellW;
+});
+rows.forEach((row,ri)=>{
+  const y=headH+ri*cellH;
+  g.fillStyle='#fff4dc';g.fillText(row.label,8,y+14);
+  const F=CATS.frames(row.coat,row.acc,row.shape);
+  let x=labelW;
+  cols.forEach(col=>{
+    const skip=(col.pose==='carry'||col.pose==='hammer')&&row.coat!=='builder';
+    const arr=F[col.pose]||[];
+    for(let i=0;i<col.n;i++){
+      if(!skip){const fr=(arr[i]||arr[0])[0];g.drawImage(fr,x+1,y+1);}
+      x+=cellW;
+    }
+  });
+});
+</script></body></html>

@@ -75,8 +75,8 @@ function vignette(kind,cat,coat2){const cv=document.createElement('canvas');cv.w
   music:()=>{rect(g,46,14,1,6,C.INK);rect(g,46,14,3,1,C.INK);rect(g,44,19,3,2,C.INK);rect(g,54,10,1,6,C.INK);rect(g,52,15,3,2,C.INK);},
   heart:()=>{const hp=[[1,0],[2,0],[4,0],[5,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[1,2],[2,2],[3,2],[4,2],[5,2],[2,3],[3,3],[4,3],[3,4]];hp.forEach(([x,y])=>px(g,40+x,12+y,C.PINK));}};
  (prop[kind]||(()=>{}))();
- g.drawImage(pose,kind==='visitor'?34:14,17);
- if(coat2){g.drawImage(R.CATS.frames(coat2).sit[1][1],kind==='heart'?46:38,17);}
+ const ay=32-(R.CATS.AY||21);g.drawImage(pose,kind==='visitor'?28:8,ay);
+ if(coat2){g.drawImage(R.CATS.frames(coat2).sit[1][1],kind==='heart'?40:32,ay);}
  return cv;}
 R.FX={px,rect,line,DEC,flag,fire,sails,sparkle,scaffold,sky,CLOUDS,vignette,mk};
 })(typeof window!=='undefined'?window:globalThis);
