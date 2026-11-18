@@ -236,7 +236,8 @@ function render(dt){T+=dt;const td=tod();drawSky(td);
  for(const p of PLOTS)ents.push({y:p.y,draw:()=>drawPlot(p)});
  function catSprite(c){const F=CATS.frames(c.d?c.d.coat:'builder',c.d&&c.d.acc,c.d&&c.d.shape);const pose=F[c.pose]||F.sit;const fr=pose[c.f%pose.length][c.face>0?0:1];return fr;}
  function drawOneCat(c){const fr=catSprite(c);const cx=Math.round(c.x),cy=Math.round(c.y);
-  g.save();g.fillStyle='rgba(36,26,46,.42)';g.beginPath();g.ellipse(cx,cy+1,11,3.2,0,0,Math.PI*2);g.fill();g.restore();
+  /* Shadow sits tightly under the visual foot center (body is 2px left of AX). */
+  g.save();g.fillStyle='rgba(36,26,46,.28)';g.beginPath();g.ellipse(cx-2,cy-1,6.5,1.8,0,0,Math.PI*2);g.fill();g.restore();
   g.imageSmoothingEnabled=false;g.drawImage(fr,cx-CATS.AX,cy-CATS.AY);
   if(c.pose==='sleep'){const zt=(T*1.2+c.x)%3;const zx=c.x+6+zt*3,zy=c.y-CATS.AY+2-zt*5;g.fillStyle=PAL[C.WHITE];g.fillRect(zx,zy,3,1);g.fillRect(zx+2,zy-2,1,2);g.fillRect(zx,zy-3,3,1);}}
  for(const c of cats)if(!c.hidden)ents.push({y:c.y,draw:()=>drawOneCat(c)});
@@ -280,9 +281,10 @@ function render(dt){T+=dt;const td=tod();drawSky(td);
  stepFish(dt);drawFishFlies(dt);drawUpgradeMarks();
  // name tags / bubbles (crisp text in screen space; only when zoomed in = more detail)
  ctx.textAlign='center';ctx.textBaseline='middle';
- for(const c of cats){if(c.hidden)continue;const [sx,sy]=toScreen(c.x,c.y-CATS.AY+2);
-  if(c.bubble){c.bubble.t-=dt;if(c.bubble.t<=0)c.bubble=null;else{bubble(sx,sy-6,c.bubble.text);continue;}}
-  if(cam.z>=2.6){ctx.font='600 11px -apple-system,PingFang SC,sans-serif';const w=ctx.measureText(c.d.name).width+10;ctx.fillStyle='rgba(36,26,46,.72)';rr(sx-w/2,sy-8,w,15,7);ctx.fill();ctx.fillStyle='#fff4dc';ctx.fillText(c.d.name,sx,sy);}}
+ for(const c of cats){if(c.hidden)continue;const [sx,sy]=toScreen(c.x,c.y-CATS.AY-14);
+  if(c.bubble){c.bubble.t-=dt;if(c.bubble.t<=0)c.bubble=null;else{bubble(sx,sy,c.bubble.text);continue;}}
+  /* Names only when zoomed in close, and well above the ears so they don't cover the head. */
+  if(cam.z>=4){ctx.font='600 11px -apple-system,PingFang SC,sans-serif';const w=ctx.measureText(c.d.name).width+10;ctx.fillStyle='rgba(36,26,46,.72)';rr(sx-w/2,sy-8,w,15,7);ctx.fill();ctx.fillStyle='#fff4dc';ctx.fillText(c.d.name,sx,sy);}}
  for(const p of PLOTS){const j=S.plots[p.id].job;if(!j)continue;const r=plotRect(p);const [sx,sy]=toScreen((r.x0+r.x1)/2,r.y0-6);const k=Math.min(1,(now()-j.start)/j.dur);
   ctx.fillStyle='rgba(36,26,46,.8)';rr(sx-26,sy-5,52,10,5);ctx.fill();ctx.fillStyle='#ffd34d';rr(sx-24,sy-3,48*k,6,3);ctx.fill();}
  if(REC&&window.FINGERS)for(const f of window.FINGERS){ctx.fillStyle='rgba(255,255,255,.35)';ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(f[0],f[1],18,0,7);ctx.fill();ctx.stroke();}

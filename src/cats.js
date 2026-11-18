@@ -24,29 +24,38 @@ const SHAPE={
   sturdy: {head:0,body:1,ear:0,leg:-1}
 };
 
-/* ---------- coat helpers ---------- */
-function furAt(coat,x,y,base){
+/* ---------- coat helpers ----------
+ * Pattern is evaluated in body/head-local coordinates so patches and
+ * stripes stay painted on the cat as it bobs, leans, or squashes.
+ */
+function furAt(coat,lx,ly,base,part){
   const m=coat.mark;
-  if(m==='stripes'){
-    if(((x+y*2)&3)===0 && y>2) return coat.dark;
-  }
-  if(m==='tabby'){
-    if(((x+y)&3)===0 && y>3) return coat.dark;
+  if(m==='stripes'||m==='tabby'){
+    if(part==='tail') return base;
+    if(((lx+ly*2)&3)===0 && ly>-2) return coat.dark;
+    return base;
   }
   if(m==='calico'){
-    const h=(x*7+y*13)&7;
-    if(h===0||h===1) return C.ORNG;
-    if(h===2) return C.INK;
-  }
-  if(m==='points'){
-    /* ears / muzzle / paws get dark points later by region */
-    return base;
-  }
-  if(m==='tuxedo'){
-    /* body belly is already white; face gets a white muzzle in head() */
-    return base;
+    /* Designed, stable patches — white base, orange left, black right. */
+    if(part==='head'){
+      if(ly>=2) return C.WHITE;           /* muzzle stays white */
+      if(lx<=-1 && ly<=1) return C.ORNG;  /* left forehead */
+      if(lx>=3 && ly<=0) return C.INK;    /* right crown */
+      return C.WHITE;
+    }
+    if(part==='body'){
+      if(lx<=-2 && ly<=1) return C.ORNG;  /* left shoulder */
+      if(lx>=2 && ly>=0) return C.INK;    /* right hip */
+      return C.WHITE;
+    }
+    if(part==='tail') return base; /* shaft/tip set by the tail itself */
+    if(part==='leg') return base;
+    return C.WHITE;
   }
   return base;
+}
+function furFn(coat,ax,ay,base,part){
+  return (u,v,x,y)=>furAt(coat,x-ax,y-ay,base,part);
 }
 
 /* ---------- silhouette outline (4-neigh, #241a2e) ---------- */
@@ -61,12 +70,13 @@ function shadow(s,cx,cy,rx,ry){
 /* Ears: two tall triangles. dx shifts with pose (squash/stretch). */
 function ears(s,hx,hy,coat,shp,dx,dy,foldL,foldR){
   const e=2+shp.ear;
-  const ink=C.INK, fur=coat.fur, inn=coat.ear, dark=coat.dark;
-  const point=coat.mark==='points'?dark:fur;
+  const ink=C.INK, inn=coat.ear, dark=coat.dark;
+  /* Calico: left ear orange, right ear black. Siamese: both dark points. */
   function one(side,fold){
     const x=hx+side*(3+shp.head);
     const y=hy-5+dy+(fold?1:0);
-    /* tall triangle, 2px tip */
+    const point=coat.mark==='points'?dark:coat.mark==='calico'?(side<0?C.ORNG:C.INK):coat.fur;
+    /* tall triangle, 2px tip — sits clearly above a forehead band */
     s.set(x,y-e-2,ink); s.set(x+side,y-e-1,ink);
     s.set(x,y-e-1,point);
     s.set(x-1,y-e,ink); s.set(x,y-e,point); s.set(x+1,y-e,ink);
@@ -84,11 +94,11 @@ function head(s,hx,hy,coat,shp,blink,look,mood,tilt){
   const hr=5+shp.head;
   const fur=coat.fur, dark=coat.dark, belly=coat.belly;
   const faceFur=(coat.mark==='points'||coat.mark==='tuxedo')?belly:fur;
-  s.ell(hx,hy+tilt,hr,5,furAt(coat,hx,hy,fur));
-  /* cheeks */
-  s.ell(hx-5,hy+2,3,3,furAt(coat,hx-5,hy,faceFur));
-  s.ell(hx+5,hy+2,3,3,furAt(coat,hx+5,hy,faceFur));
-  /* muzzle */
+  s.ell(hx,hy+tilt,hr,5,furFn(coat,hx,hy,fur,'head'));
+  /* cheeks — same head-local pattern, so patches don't jump */
+  s.ell(hx-5,hy+2,3,3,furFn(coat,hx,hy,faceFur,'head'));
+  s.ell(hx+5,hy+2,3,3,furFn(coat,hx,hy,faceFur,'head'));
+  /* muzzle always the face fur (white / cream), never a crawling patch */
   s.ell(hx,hy+3,4,3,faceFur);
   /* tabby M */
   if(coat.mark==='stripes'||coat.mark==='tabby'){
@@ -149,7 +159,7 @@ function body(s,bx,by,coat,shp,squash,lean){
   const w=7+shp.body+Math.max(0,squash);
   const h=6+shp.body-squash;
   const x=bx+lean;
-  s.ell(x,by,w,h,furAt(coat,x,by,coat.fur));
+  s.ell(x,by,w,h,furFn(coat,x,by,coat.fur,'body'));
   s.ell(x,by+2,Math.max(3,w-2),Math.max(3,h-2),coat.belly);
 }
 
@@ -163,8 +173,13 @@ function legs(s,bx,by,coat,shp,paws,sit){
     const lift=p.lift|0;
     const y=y0-lift;
     const l=sit?Math.max(2,len-2):len;
-    s.vl(x,y,l,furAt(coat,x,y,fur));
-    s.vl(x+(p.x>0?1:-1),y,Math.max(2,l-1),furAt(coat,x,y,fur));
+    /* Calico legs are fixed by side: left/hind dark, right/front white or orange. */
+    let col=fur;
+    if(coat.mark==='calico') col=p.x<0?C.INK:(p.x>3?C.ORNG:C.WHITE);
+    else if(coat.mark==='points') col=dark;
+    else col=furAt(coat,p.x,3,fur,'leg');
+    s.vl(x,y,l,col);
+    s.vl(x+(p.x>0?1:-1),y,Math.max(2,l-1),col);
     /* paw pad */
     s.set(x,y+l,paw); s.set(x+(p.x>0?1:-1),y+l,paw);
     if(lift>2){
@@ -176,14 +191,17 @@ function legs(s,bx,by,coat,shp,paws,sit){
 
 /* Tail. base at body rear. curve is a list of {dx,dy} from base. */
 function tail(s,bx,by,coat,pts){
-  const fur=furAt(coat,bx,by,coat.fur);
-  const tip=coat.mark==='points'?coat.dark:fur;
-  let x=bx,y=by;
+  /* Stable colours along the tail, never hashed by screen position. */
+  const n=pts.length;
   pts.forEach((p,i)=>{
-    x=bx+p.x; y=by+p.y;
-    const col=i>pts.length-3?tip:fur;
+    const x=bx+p.x, y=by+p.y;
+    let col=coat.fur;
+    if(coat.mark==='calico') col=i>=n-2?C.INK:C.ORNG;
+    else if(coat.mark==='points') col=i>=n-3?coat.dark:coat.fur;
+    else if(coat.mark==='stripes'||coat.mark==='tabby') col=(i%3===0)?coat.dark:coat.fur;
+    else if(coat.mark==='tuxedo') col=coat.fur;
     s.set(x,y,col); s.set(x,y-1,col);
-    if(i===pts.length-1){ s.set(x,y,tip); s.set(x+1,y,tip); }
+    if(i===n-1){ s.set(x,y,col); s.set(x+1,y,col); }
   });
 }
 
@@ -205,26 +223,18 @@ function accessory(s,hx,hy,acc,coat){
 
 /* ねじり鉢巻: white twist, a knot blob, two ribbon tails. */
 function hachimaki(s,hx,hy,knotSide,flop){
-  /* band around forehead, with a red twist stripe */
-  s.hl(hx-6,hy-4,13,C.WHITE);
-  s.hl(hx-5,hy-5,11,C.WHITE);
-  s.hl(hx-4,hy-3,9,C.WHITE);
-  s.hl(hx-3,hy-4,7,C.RD1);
-  /* knot blob on the side — a visible bun + two hanging tails */
-  const d=knotSide, kx=hx+d*7, ky=hy-4;
-  s.rect(kx-1,ky-2,4,4,C.WHITE);
-  s.set(kx,ky-1,C.RD1); s.set(kx+1,ky,C.RD1);
-  /* tail A */
-  s.set(kx+d*3,ky+1+flop,C.WHITE);
-  s.set(kx+d*4,ky+2+flop,C.WHITE);
-  s.set(kx+d*4,ky+3+flop,C.WHITE);
-  s.set(kx+d*3,ky+4+flop,C.WHITE);
-  s.set(kx+d*3,ky+2+flop,C.RD1);
-  /* tail B, slightly behind/offset */
-  s.set(kx+d*2,ky+2+flop,C.WHITE);
-  s.set(kx+d*2,ky+3+flop,C.WHITE);
-  s.set(kx+d*3,ky+5+flop,C.WHITE);
-  s.set(kx+d*1,ky+3+flop,C.ST2);
+  /* Clean 2px white forehead band, sitting BELOW the ear tips, not over the eyes. */
+  s.hl(hx-5,hy-3,10,C.WHITE);
+  s.hl(hx-5,hy-2,10,C.WHITE);
+  s.hl(hx-4,hy-3,8,C.RD1); /* one thin red twist */
+  /* Small knot just past the right of the band, two short tails. */
+  const d=knotSide||1, kx=hx+d*6, ky=hy-2;
+  s.set(kx,ky,C.WHITE); s.set(kx+d,ky,C.WHITE);
+  s.set(kx,ky+1,C.WHITE); s.set(kx+d,ky+1,C.RD1);
+  const f=flop||0;
+  s.set(kx+d*2,ky+1+f,C.WHITE);
+  s.set(kx+d*2,ky+2+f,C.WHITE);
+  s.set(kx+d,ky+2+f,C.WHITE);
 }
 
 /* Happi vest: indigo with a warm opening so it doesn't melt into brown fur. */
@@ -238,31 +248,23 @@ function happi(s,bx,by,lean){
   s.set(x-2,by+2,C.RD1); s.set(x+2,by+2,C.RD1);
 }
 
-/* Wooden mallet. (hx,hy) is the head center; handle goes toward (tx,ty). */
-function mallet(s,hx,hy,tx,ty){
-  /* handle */
-  const steps=8;
-  for(let i=0;i<=steps;i++){
-    const t=i/steps;
-    const x=Math.round(hx+(tx-hx)*t), y=Math.round(hy+(ty-hy)*t);
-    s.set(x,y,C.WD1); s.set(x+1,y,C.WD2);
-  }
-  /* head — large, readable block with highlight */
-  s.rect(hx-3,hy-3,8,6,C.WD2);
-  s.hl(hx-3,hy-3,8,C.GOLD);
-  s.hl(hx-2,hy-2,6,C.GOLD);
-  s.rect(hx-2,hy-1,6,3,C.WD1);
-  /* dark steel-ish bands */
-  s.set(hx-3,hy,C.INK); s.set(hx+4,hy,C.INK);
+/* Wooden mallet. Axis-aligned head so diagonals stay readable in pixel art.
+ * (hx,hy) is the head center; (gx,gy) is the grip in the paws. */
+function mallet(s,hx,hy,gx,gy){
+  hx=Math.round(hx); hy=Math.round(hy); gx=Math.round(gx); gy=Math.round(gy);
+  s.line(gx,gy,hx,hy,C.WD1);
+  s.line(gx+1,gy,hx+1,hy,C.WD2);
+  /* Compact mallet head — a small wooden block with a gold face, not a crate. */
+  s.rect(hx-2,hy-2,5,4,C.WD2);
+  s.hl(hx-2,hy-2,5,C.GOLD);
+  s.rect(hx-1,hy-1,3,2,C.WD1);
 }
 
 /* Impact puff baked into the hit frame (plus live particles). */
 function puff(s,x,y){
-  s.glow(x,y,C.SAND); s.glow(x+2,y-1,C.WHITE); s.glow(x-2,y-1,C.SAND);
-  s.glow(x+1,y-3,C.WHITE); s.glow(x-1,y-2,C.ST2);
-  s.glow(x+3,y-2,C.GOLD); s.glow(x-3,y,C.ST2);
-  s.glow(x,y-4,C.GOLD); s.glow(x+4,y-1,C.WHITE);
-  s.glow(x-4,y-3,C.SAND); s.glow(x+2,y+1,C.ST2);
+  /* Tight impact dust, kept next to the mallet head. */
+  s.glow(x,y,C.SAND); s.glow(x+2,y-1,C.WHITE); s.glow(x-2,y-1,C.ST2);
+  s.glow(x+1,y-3,C.WHITE); s.glow(x-1,y-2,C.GOLD);
 }
 
 function plank(s,x,y){
@@ -293,7 +295,7 @@ function baseCat(s,opt){
   if(opt.builder) hachimaki(s,hx,hy,opt.knotSide||1,opt.knotFlop||0);
   else if(acc) accessory(s,hx,hy,acc,coat);
   if(opt.tailFront && opt.tail) tail(s, bx+(opt.tailBaseX|| -6+lean), by+(opt.tailBaseY||0), coat, opt.tail);
-  if(opt.mallet) mallet(s, opt.mallet.hx, opt.mallet.hy, opt.mallet.tx, opt.mallet.ty);
+  if(opt.mallet) mallet(s, opt.mallet.hx, opt.mallet.hy, opt.mallet.gx, opt.mallet.gy);
   if(opt.puff) puff(s, opt.puff.x, opt.puff.y);
   if(opt.plank) plank(s, opt.plank.x, opt.plank.y);
   outline(s);
@@ -315,10 +317,10 @@ function tailS(k, sway, lift){
 function poseWalk(f,coat,shp,acc,builder){
   const s=new Spr(SW,SH);
   /* body bob: down on 1,5 ; up on 3,7 */
-  const bob=[0,3,1,-2, 0,3,1,-2][f];
-  const squash=[0,3,1,-2, 0,3,1,-2][f];
-  const lean=[1,0,0,-1, 1,0,0,-1][f];
-  const hy=11+bob, hx=22, bx=18, by=18+bob;
+  const bob=[0,1,0,-1, 0,1,0,-1][f];
+  const squash=[0,1,0,-1, 0,1,0,-1][f];
+  const lean=[1,0,0,0, 1,0,0,0][f];
+  const hy=11, hx=22, bx=18, by=18+bob; /* head stays put; only the body bobs */
   /* stride: front-right / hind-left forward on 0-1, opposite on 4-5 */
   /* paws relative to bx: hind L, hind R, fore L, fore R */
   const stride=[
@@ -331,12 +333,12 @@ function poseWalk(f,coat,shp,acc,builder){
     /*6 passing  */ {hL:-3,hLl:1, hR:-3,hRl:0, fL:2,fLl:0, fR:2,fRl:2},
     /*7 up R     */ {hL:-5,hLl:0, hR:-1,hRl:1, fL:0,fLl:0, fR:5,fRl:3}
   ][f];
-  const sway=[-3,-1,1,3, 3,1,-1,-3][f];
-  const lift=[2,1,3,5, 2,1,3,5][f];
+  const sway=[-3,-2,0,2, 3,2,0,-2][f];
+  const lift=[2,2,3,3, 2,2,3,3][f];
   baseCat(s,{
     coat,shp,acc,builder:false,
     hx,hy,bx,by,squash,lean,
-    look: lean>0?1:lean<0?-1:0,
+    look:1,
     backPaws:[
       {x:stride.hL,lift:stride.hLl},
       {x:stride.hR,lift:stride.hRl}
@@ -354,11 +356,11 @@ function poseWalk(f,coat,shp,acc,builder){
 /* Idle: breathing squash, tail sway, a clear 2-frame blink. */
 function poseIdle(f,coat,shp,acc){
   const s=new Spr(SW,SH);
-  const squash=[0,-1,-2,-1, 1,2,1,0][f]; /* inhale 1-2, exhale 4-5 */
-  const bob=[0,-1,-1,0, 1,1,0,0][f];
+  const squash=[0,0,-1,0, 1,1,0,0][f]; /* slight inhale / exhale */
+  const bob=[0,0,-1,0, 1,1,0,0][f];
   const blink=f===3?1:f===4?2:0;
   const sway=[-3,-2,0,2, 3,2,0,-2][f];
-  const hx=20, hy=12+bob, bx=18, by=19+bob;
+  const hx=20, hy=12, bx=18, by=19+bob; /* head stays put */
   baseCat(s,{
     coat,shp,acc,
     hx,hy,bx,by,squash,lean:0,
@@ -473,21 +475,23 @@ function poseSleep(f,coat,shp,acc){
  * HIT + puff, recoil, recover, settle. Mallet and knot always visible. */
 function poseHammer(f,coat,shp,acc){
   const s=new Spr(SW,SH);
-  const squash=[0,1,2,-2, 3,-1,0,0][f];
-  const bob=[0,1,2,-1, 4,0,0,0][f];
-  const lean=[0,-1,-2,3, 2,-1,0,0][f];
-  const hx=18+lean, hy=11+bob, bx=16, by=18+bob;
+  const squash=[0,0,1,0, 2,0,0,0][f];
+  const bob=[0,0,1,0, 2,0,0,0][f];
+  const lean=[0,0,-1,1, 1,0,0,0][f];
+  const hx=18, hy=11, bx=16, by=18+bob;
   const mood=f===3||f===4?1:f===2||f===5?2:0;
-  /* mallet head + handle end per frame — big clear arc */
+  /* Grip stays in the front paws. Head rides a clear arc; only f2 goes above the ears. */
+  /* Grip in the front paws, shifted right so the handle misses the face. */
+  const gx=bx+lean+8, gy=by+4-(f===1||f===2?4:0);
   const mallets=[
-    /*0 ready   */ {hx:32,hy:11, tx:24,ty:17},
-    /*1 wind-up */ {hx:28,hy:5,  tx:22,ty:13},
-    /*2 anticip */ {hx:16,hy:3,  tx:20,ty:12}, /* HIGH above / just behind the ears */
-    /*3 swing   */ {hx:34,hy:12, tx:26,ty:16}, /* out to the right, not through the face */
-    /*4 HIT     */ {hx:36,hy:26, tx:26,ty:18}, /* down in front, on the ground */
-    /*5 recoil  */ {hx:34,hy:16, tx:26,ty:15},
-    /*6 recover */ {hx:32,hy:12, tx:24,ty:17},
-    /*7 settle  */ {hx:32,hy:11, tx:24,ty:17}
+    /*0 ready   */ {hx:gx+7, hy:gy-2, gx, gy},
+    /*1 wind-up */ {hx:gx+5, hy:gy-8, gx, gy},
+    /*2 anticip */ {hx:gx+5, hy:2,    gx:gx+4, gy:gy-2}, /* strictly above the ears */
+    /*3 swing   */ {hx:gx+8, hy:gy-1, gx, gy},
+    /*4 HIT     */ {hx:gx+8, hy:29,   gx, gy}, /* on the ground, handle from the paws */
+    /*5 recoil  */ {hx:gx+7, hy:gy+2, gx, gy},
+    /*6 recover */ {hx:gx+7, hy:gy-1, gx, gy},
+    /*7 settle  */ {hx:gx+7, hy:gy-2, gx, gy}
   ][f];
   /* stance: plant on hit, rear foot back on anticipation */
   const paws=[
@@ -506,11 +510,11 @@ function poseHammer(f,coat,shp,acc){
     hx,hy,bx,by,squash,lean,
     mood, look:1, blink:0,
     allPaws:paws,
-    tail:tailS(f, f===2?2:f===4?-3:0, f===2?5:2),
+    tail:tailS(f, f===2?2:f===4?-2:0, f===2?3:2),
     tailBaseX:-7+lean, tailBaseY:-1,
     mallet:mallets,
-    puff:f===4?{x:36,y:24}:null,
-    knotSide:1, knotFlop,
+    puff:f===4?{x:mallets.hx,y:mallets.hy-2}:null,
+    knotSide:1, knotFlop:0,
     shadow:true
   });
   return s;
@@ -518,10 +522,10 @@ function poseHammer(f,coat,shp,acc){
 
 function poseCarry(f,coat,shp,acc){
   const s=new Spr(SW,SH);
-  const bob=[0,2,1,-1, 0,2,1,-1][f];
-  const squash=[0,2,1,-1, 0,2,1,-1][f];
+  const bob=[0,1,0,-1, 0,1,0,-1][f];
+  const squash=[0,1,0,-1, 0,1,0,-1][f];
   const lean=1;
-  const hx=22, hy=11+bob, bx=18, by=18+bob;
+  const hx=22, hy=11, bx=18, by=18+bob;
   const stride=[
     {hL:-6,hLl:0,hR:-1,hRl:0,fL:0,fLl:0,fR:6,fRl:0},
     {hL:-5,hLl:0,hR:-2,hRl:0,fL:1,fLl:0,fR:5,fRl:0},
@@ -540,7 +544,7 @@ function poseCarry(f,coat,shp,acc){
     frontPaws:[{x:stride.fL,lift:stride.fLl},{x:stride.fR,lift:stride.fRl}],
     tail:tailS(f,[-2,0,2,3,2,0,-2,-3][f],3),
     tailBaseX:-7, tailBaseY:-1,
-    plank:{x:8,y:12+bob},
+    plank:{x:bx-10,y:by-6},
     knotSide:1, knotFlop:0
   });
   return s;
