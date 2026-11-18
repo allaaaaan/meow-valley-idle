@@ -88,11 +88,19 @@ function updCat(c,dt){c.ft+=dt;
  if(c.timer<=0)catThink(c);}
 // ---------------- time of day ----------------
 let todOverride=null;
-function tod(){let h;const m=todOverride||S.todMode;if(m==='day')h=12;else if(m==='dusk')h=18.6;else if(m==='night')h=22.5;else{const d=new Date(now());h=d.getHours()+d.getMinutes()/60;}
- let dark=0,dusk=0;if(h>=7&&h<17)dark=0;else if(h>=17&&h<20){dark=(h-17)/3*.85;dusk=1-Math.abs(h-18.3)/1.7;}else if(h>=20||h<5)dark=.85;else{dark=.85*(1-(h-5)/2);dusk=1-Math.abs(h-6)/1;}
- return {h,dark:Math.max(0,Math.min(.85,dark)),dusk:Math.max(0,dusk)};}
+function tod(){let h;const m=todOverride||S.todMode;
+ if(typeof m==='number'&&isFinite(m))h=m;else if(m==='day')h=12;else if(m==='dusk')h=19;else if(m==='night')h=22;else{const d=new Date(now());h=d.getHours()+d.getMinutes()/60;}
+ // Bright day until 18:00. 18–20 is a light warm evening (NZ summer sun is still up at 19:00) with no navy veil.
+ // 20–21 fades to night; 21–5 is a readable night that keeps the palette; 5–6:30 is dawn.
+ let dark=0,dusk=0;
+ if(h>=6.5&&h<18){dark=0;dusk=0;}
+ else if(h>=18&&h<20){dusk=Math.max(0,1-Math.abs(h-19)/1.5);dark=0;}
+ else if(h>=20&&h<21){const k=h-20;dusk=.33*(1-k);dark=k;}
+ else if(h>=21||h<5){dark=1;dusk=0;}
+ else{const k=(h-5)/1.5;dark=Math.max(0,1-k);dusk=Math.max(0,1-Math.abs(h-6)/1.2);}
+ return {h,dark:Math.max(0,Math.min(1,dark)),dusk:Math.max(0,Math.min(1,dusk))};}
 // ---------------- canvas & camera ----------------
-const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const cv=document.getElementById('cv');let ctx;try{ctx=cv.getContext('2d',{alpha:false,colorSpace:'srgb'});}catch(e){ctx=cv.getContext('2d',{alpha:false});}if(!ctx)ctx=cv.getContext('2d');
 const world=document.createElement('canvas');world.width=WW;world.height=WH;const g=world.getContext('2d');
 const skyCv=document.createElement('canvas');skyCv.width=WW;skyCv.height=240;const sg=skyCv.getContext('2d');
 let VW=390,VH=844,DPR=1;
@@ -131,6 +139,22 @@ const parts=[];let smokeT=0;
 function spawnSmoke(x,y){parts.push({k:'smoke',x,y,vx:2+Math.random()*2,vy:-6-Math.random()*3,life:2.6,age:0});}
 function burst(p){const r=plotRect(p);for(let i=0;i<26;i++)parts.push({k:'spark',x:r.x0+Math.random()*(r.x1-r.x0),y:r.y0+Math.random()*(r.y1-r.y0),vx:(Math.random()-.5)*10,vy:-8-Math.random()*10,life:1.4+Math.random()*.6,age:0});
  for(let i=0;i<16;i++)parts.push({k:'dust',x:p.x-30+Math.random()*60,y:p.y-2,vx:(Math.random()-.5)*24,vy:-Math.random()*6,life:1,age:0});}
+// dried-fish pops: produced by shops, fly to the basket (screen space)
+const fishFlies=[];const fishAcc={};
+function spawnFish(p){const r=plotRect(p);fishFlies.push({x0:(r.x0+r.x1)/2+(Math.random()-.5)*8,y0:r.y0+6,age:0,life:1.15});}
+function stepFish(dt){if(S.fish>=cap()*.995)return;
+ for(const p of PLOTS){if(lv(p.id)<=0||S.plots[p.id].job)continue;const prod=lv(p.id)*RATE[p.type];fishAcc[p.id]=(fishAcc[p.id]||0)+prod*dt;if(fishAcc[p.id]>=2.2){fishAcc[p.id]-=2.2;spawnFish(p);}}}
+function basketPt(){const el=$('#basket');if(!el)return[VW-48,28];const r=el.getBoundingClientRect();return[r.left+r.width*.45,r.top+r.height*.55];}
+function drawMiniFish(c,x,y,scale,flip){const s=scale||3;c.save();c.translate(x,y);c.scale(flip?-s:s,s);c.fillStyle=PAL[C.BL1];c.fillRect(-3,-1,6,3);c.fillRect(-4,0,1,2);c.fillRect(3,-1,2,2);c.fillStyle=PAL[C.BL2];c.fillRect(-2,-1,2,1);c.fillStyle=PAL[C.INK];c.fillRect(3,0,1,1);c.restore();}
+function drawFishFlies(dt){const [bx,by]=basketPt();let arrived=false;
+ for(let i=fishFlies.length-1;i>=0;i--){const f=fishFlies[i];f.age+=dt;if(f.age>=f.life){fishFlies.splice(i,1);arrived=true;continue;}
+  const k=f.age/f.life,e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;const [sx,sy]=toScreen(f.x0,f.y0);
+  const x=sx+(bx-sx)*e,y=sy+(by-sy)*e-Math.sin(Math.PI*k)*70;ctx.globalAlpha=k<.12?k/.12:k>.85?(1-k)/.15:1;
+  drawMiniFish(ctx,x,y,3+(1-e),bx<sx);ctx.globalAlpha=1;}
+ if(arrived){const w=$('#bwrap');if(w){w.classList.remove('got');void w.offsetWidth;w.classList.add('got');}}}
+function drawUpgradeMarks(){for(const p of PLOTS){if(!canBuild(p).ok)continue;const r=plotRect(p);const [sx,sy]=toScreen((r.x0+r.x1)/2,r.y0-2);const bob=Math.sin(T*3.2)*4;const a=.7+.3*Math.sin(T*3.2);
+  ctx.save();ctx.translate(sx,sy-10+bob);ctx.globalAlpha=a;ctx.fillStyle=PAL[C.GOLD];ctx.strokeStyle=PAL[C.INK];ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(8,-10);ctx.lineTo(3,-10);ctx.lineTo(3,-18);ctx.lineTo(-3,-18);ctx.lineTo(-3,-10);ctx.lineTo(-8,-10);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.arc(0,8,11,0,7);ctx.strokeStyle=PAL[C.GOLD];ctx.lineWidth=2;ctx.globalAlpha=a*.55;ctx.stroke();ctx.restore();}}
 // ambient creatures
 const birds=[],flies=[];for(let i=0;i<26;i++)flies.push({x:Math.random()*WW,y:220+Math.random()*800,p:Math.random()*7});
 const butterflies=[[70,520],[262,520],[110,690],[300,940],[110,250],[60,940]].map(([x,y],i)=>({x,y,bx:x,by:y,p:i}));
@@ -166,9 +190,11 @@ function render(dt){T+=dt;const td=tod();drawSky(td);
   for(let i=birds.length-1;i>=0;i--){const b=birds[i];b.x+=dt*16;if(b.x>WW+30){birds.splice(i,1);continue;}for(let k=0;k<b.n;k++){const bx=b.x-k*6,by=b.y+Math.abs(k-1)*3+Math.sin(T*3+k)*1.5,f=Math.floor(T*6+k)%2;FX_.px(g,bx,by,C.INK);FX_.px(g,bx-1,by-f,C.INK);FX_.px(g,bx+1,by-f,C.INK);FX_.px(g,bx-2,by-1+f,C.INK);FX_.px(g,bx+2,by-1+f,C.INK);}}
   if(cam.z>=2.4)for(const b of butterflies){b.x=b.bx+Math.sin(T*.7+b.p)*14;b.y=b.by-6+Math.sin(T*1.3+b.p*2)*5;const f=Math.floor(T*8+b.p)%2;FX_.px(g,b.x,b.y,C.INK);FX_.px(g,b.x-1,b.y-f,b.p%2?C.PINK:C.GOLD);FX_.px(g,b.x+1,b.y-f,b.p%2?C.PINK:C.GOLD);}}
  // ---- night: darken everything, then lights ----
- if(td.dark>0||td.dusk>0){g.globalCompositeOperation='source-atop';if(td.dusk>0){g.fillStyle=`rgba(255,120,70,${.16*td.dusk})`;g.fillRect(0,0,WW,WH);}
-  if(td.dark>0){g.fillStyle=`rgba(16,14,58,${.72*td.dark})`;g.fillRect(0,0,WW,WH);}g.globalCompositeOperation='source-over';}
- const L=Math.min(1,td.dark*1.6);
+ if(td.dusk>0||td.dark>0){g.globalCompositeOperation='source-atop';
+  if(td.dusk>0){g.fillStyle=`rgba(255,150,90,${.10*td.dusk})`;g.fillRect(0,0,WW,WH);}
+  if(td.dark>0){g.fillStyle=`rgba(48,52,110,${.28*td.dark})`;g.fillRect(0,0,WW,WH);}
+  g.globalCompositeOperation='source-over';}
+ const L=Math.min(1,td.dark);
  if(L>0){g.globalAlpha=L;
   for(const p of PLOTS){if(S.plots[p.id].job)continue;const a=plotArt(p);g.drawImage(a.lit,p.x-AX,p.y-AY);for(const l of a.meta.lamps)halo(p.x-AX+l[0],p.y-AY+l[1],7);for(const w of a.meta.lights)halo(p.x-AX+w[0]+w[2]/2,p.y-AY+w[1]+w[3]/2,5);
    if(a.meta.beacon){const bx=p.x-AX+a.meta.beacon[0],by=p.y-AY+a.meta.beacon[1];const ang=T*1.4;g.globalAlpha=L*.35;g.fillStyle=PAL[C.WARM];g.beginPath();g.moveTo(bx,by);g.lineTo(bx+Math.cos(ang)*120,by+Math.sin(ang)*14-6);g.lineTo(bx+Math.cos(ang)*120,by+Math.sin(ang)*14+6);g.fill();g.globalAlpha=L;}}
@@ -176,7 +202,7 @@ function render(dt){T+=dt;const td=tod();drawSky(td);
   for(const f of flies){const fx=f.x+Math.sin(T*.6+f.p)*10,fy=f.y+Math.sin(T*.9+f.p*1.7)*6;if(Math.sin(T*2+f.p*3)>.1)FX_.px(g,fx,fy,C.GOLD);}
   g.globalAlpha=1;}
  // ---- screen ----
- ctx.setTransform(DPR,0,0,DPR,0,0);ctx.imageSmoothingEnabled=false;ctx.fillStyle=PAL[td.dark>.55?C.INK:td.dusk>.4?C.PU1:C.BL2];ctx.fillRect(0,0,VW,VH);
+ ctx.setTransform(DPR,0,0,DPR,0,0);ctx.imageSmoothingEnabled=false;ctx.fillStyle=PAL[td.dark>.55?C.NV:td.dusk>.4?C.PU1:C.BL2];ctx.fillRect(0,0,VW,VH);
  const ox=VW/2-cam.x*cam.z,oy=VH/2-cam.y*cam.z;
  ctx.save();ctx.translate(ox,oy);ctx.scale(cam.z,cam.z);ctx.drawImage(skyCv,0,0);
  // sun/moon + stars + clouds (sky space)
@@ -185,6 +211,7 @@ function render(dt){T+=dt;const td=tod();drawSky(td);
  else{const sx=td.dusk>.4?70:250,sy=td.dusk>.4?118:46;ctx.fillStyle=PAL[td.dusk>.4?C.ORNG:C.GOLD];ctx.fillRect(sx-6,sy-6,13,13);ctx.fillRect(sx-8,sy-3,17,7);ctx.fillRect(sx-3,sy-8,7,17);ctx.fillStyle=PAL[C.WARM];ctx.fillRect(sx-4,sy-4,4,3);}
  FX_.CLOUDS.forEach((c,i)=>{const x=((T*(3+i)+i*140)%(WW+60))-40;ctx.globalAlpha=td.dark>.55?.35:1;ctx.drawImage(c.cv,Math.round(x),26+i*30);ctx.globalAlpha=1;});
  ctx.drawImage(world,0,0);ctx.restore();
+ stepFish(dt);drawFishFlies(dt);drawUpgradeMarks();
  // name tags / bubbles (crisp text in screen space; only when zoomed in = more detail)
  ctx.textAlign='center';ctx.textBaseline='middle';
  for(const c of cats){if(c.hidden)continue;const [sx,sy]=toScreen(c.x,c.y-17);
@@ -248,11 +275,14 @@ function completed(list,quiet){for(const d of list){const p=PLOTS.find(q=>q.id==
  if(sheetPlot)refreshSheet(true);}
 // basket HUD (no numbers: a basket that fills up)
 const hud=$('#basket'),hg=hud.getContext('2d');
-function drawHud(){const f=S.fish/cap();hg.imageSmoothingEnabled=false;hg.clearRect(0,0,hud.width,hud.height);const s=new PIX.Spr(32,16);
- s.rect(2,5,20,10,(i,j)=>(i+j)%3===0?C.WD1:j===0?C.WD3:C.WD2);s.hl(1,4,22,C.WD3);s.ell(12,4,10,4,(u,v)=>v<0&&Math.abs(u)>.8?C.WD1:-1);
- const n=Math.round(f*7);for(let i=0;i<n;i++){const x=4+(i%4)*4,y=4-Math.floor(i/4)*2;s.rect(x,y,3,2,C.BL1);s.set(x,y,C.BL2);s.set(x+3,y,C.BL0);}
- if(f>=.99){s.set(26,2,C.GOLD);s.set(27,3,C.GOLD);s.set(25,3,C.GOLD);s.set(26,4,C.GOLD);}s.outline(0);hg.drawImage(s.toCanvas(),0,0,64,32);
- $('#basket-word').textContent=f<.15?'篮子快空了':f<.5?'攒了一些':f<.95?'快装满了':'篮子满啦';}
+function drawHud(){const f=Math.max(0,Math.min(1,S.fish/cap()));hg.imageSmoothingEnabled=false;hg.clearRect(0,0,hud.width,hud.height);const s=new PIX.Spr(32,16);
+ s.rect(2,6,22,9,C.WD1);s.rect(3,7,20,7,(i,j)=>((i+j)%3===0)?C.WD0:C.SAND);
+ s.hl(1,5,24,C.WD3);s.vl(2,6,9,C.WD2);s.vl(23,6,9,C.WD1);s.hl(2,14,22,C.WD0);
+ s.ell(13,6,11,4,(u,v)=>v<0&&Math.abs(u)>.75?C.WD1:-1);
+ for(let i=0;i<Math.round(f*12);i++){const x=4+(i%4)*5,y=11-Math.floor(i/4)*3;s.rect(x,y,4,3,C.BL1);s.set(x,y,C.BL2);s.set(x+3,y+1,C.BL0);s.set(x+3,y,C.INK);}
+ if(f>=.99){s.set(27,1,C.GOLD);s.set(28,2,C.GOLD);s.set(26,2,C.GOLD);s.set(27,3,C.GOLD);}s.outline(0);hg.drawImage(s.toCanvas(),0,0,64,32);
+ $('#basket-word').textContent=f<.08?'篮子是空的':f<.15?'篮子快空了':f<.5?'攒了一些':f<.95?'快装满了':'篮子满啦';
+ const bar=$('#basket-fill');if(bar){bar.style.width=(f*100)+'%';bar.style.background=f>=.95?PAL[C.GOLD]:PAL[C.BL1];}}
 function dayLabel(){const d=Math.floor((now()-S.start)/86400000)+1;const td=tod();$('#day').textContent=`喵喵谷 · 第${d}天`;$('#clock').textContent=td.dark>.55?'🌙':td.dusk>.4?'🌇':'☀️';}
 // ---------------- diary ----------------
 function makeDiary(ms,done){const list=[];const mins=Math.round(ms/60000);
@@ -272,7 +302,9 @@ $('#d-tod').onclick=()=>{const order=['auto','day','dusk','night'];S.todMode=ord
 $('#d-away').onclick=()=>{S.last=now()-3*3600e3;returnFlow(true);};
 $('#d-reset').onclick=()=>{if(confirm('重置小镇？')){localStorage.removeItem(SAVE);location.reload();}};
 $('#d-tod').textContent='🌗 时间：'+{auto:'跟随手机',day:'白天',dusk:'黄昏',night:'夜晚'}[S.todMode];
-function hideHint(){$('#hint').classList.add('gone');}
+function hideHint(){$('#hint').classList.add('gone');if(!S.hintFish){S.hintFish=true;save();}}
+$('#bwrap').addEventListener('click',e=>{e.stopPropagation();toast('小鱼干是店铺自己攒的，你不在也会攒。');});
+if(S.hintFish)$('#hint').classList.add('gone');
 // ---------------- sound (tiny 8-bit beeps, code generated) ----------------
 const SFX=(()=>{let ac=null;const beep=(f,d,type,v)=>{try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g2=ac.createGain();o.type=type||'square';o.frequency.value=f;g2.gain.value=v||.04;g2.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g2).connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}};
  return {meow:()=>{beep(880,.12,'triangle',.06);setTimeout(()=>beep(660,.18,'triangle',.05),90);},build:()=>{beep(220,.08);setTimeout(()=>beep(330,.08),90);},done:()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.15,'square',.035),i*90));}};})();
@@ -289,7 +321,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else
 syncCats(false);cats.forEach(c=>{c.timer=Math.random()*2;});
 if(!S.seen){S.seen=true;}
 returnFlow(false);drawHud();dayLabel();
-window.GAME={plotRect:id=>plotRect(PLOTS.find(q=>q.id===id)),cap:t=>{const e=$('#cap');e.textContent=t||'';e.classList.toggle('on',!!t);},focusPlot,S,cam,cats,PLOTS,flyTo,openSheet,closeSheet,tick,advanceClock:ms=>{vNow+=ms;},setTod:m=>{todOverride=m;skyKey='';},build:id=>{const p=PLOTS.find(q=>q.id===id);openSheet(p);$('#sh-btn').click();},
+window.GAME={plotRect:id=>plotRect(PLOTS.find(q=>q.id===id)),spawnFish,fishFlies,cap:t=>{const e=$('#cap');e.textContent=t||'';e.classList.toggle('on',!!t);},focusPlot,S,cam,cats,PLOTS,flyTo,openSheet,closeSheet,tick,advanceClock:ms=>{vNow+=ms;},setTod:m=>{todOverride=m;skyKey='';},build:id=>{const p=PLOTS.find(q=>q.id===id);openSheet(p);$('#sh-btn').click();},
  finish:id=>{const P=S.plots[id];if(P.job)P.job.start-=P.job.dur;},returnFlow,toast,showDiary,makeDiary,save,lv,clampCam,setFish:v=>{S.fish=v;},burst,art,prosperity,syncCats};
 if(!REC)requestAnimationFrame(loop);else document.body.classList.add('rec');
 })();

@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """Procedural 喵喵谷 app icons. Fixed 32-colour game palette, INK outline #241a2e.
-Drawn by code only — no image-generation models."""
+Drawn by code only — no image-generation models.
+
+The face is a broad, round cat: short wide triangular ears, big highlighted
+eyes, a pink triangle nose, a 'w' mouth, and clear whiskers. Tuned to read
+as a cat at 60px, not a rabbit or mouse.
+"""
 from pathlib import Path
 from PIL import Image
 
 PAL = {
     'INK':  (0x24, 0x1a, 0x2e),
     'DEEP': (0x3b, 0x2a, 0x40),
+    'WD0':  (0x5a, 0x3b, 0x3c),
     'WD1':  (0x8a, 0x52, 0x36),
     'WD2':  (0xb9, 0x77, 0x4a),
     'WD3':  (0xe0, 0xa8, 0x6a),
-    'WD0':  (0x5a, 0x3b, 0x3c),
     'WARM': (0xff, 0xf4, 0xdc),
     'BL1':  (0x5f, 0xa3, 0xc8),
     'BL2':  (0xa9, 0xe0, 0xf0),
@@ -46,12 +51,13 @@ def paint():
                 if u * u + v * v <= 1:
                     setp(x, y, color_fn(u, v) if callable(color_fn) else color_fn)
 
-    for y in range(23):
+    # sky + grass
+    for y in range(22):
         for x in range(N):
             px[y][x] = 'BL1' if y == 0 else 'BL2'
-    for y in range(23, N):
+    for y in range(22, N):
         for x in range(N):
-            if y == 23:
+            if y == 22:
                 px[y][x] = 'GR1'
             elif (x + y * 2) % 7 == 0:
                 px[y][x] = 'GR1'
@@ -60,60 +66,86 @@ def paint():
             else:
                 px[y][x] = 'GR2'
 
-    fill_ell(6.0, 6.0, 3.2, 3.2, lambda u, v: 'WARM' if u * u + v * v < 0.28 else 'GOLD')
-    fill_ell(24.5, 6.5, 3.6, 1.7, 'WARM')
-    fill_ell(27.8, 7.5, 2.6, 1.4, 'WARM')
-    setp(22, 7, 'WARM'); setp(21, 7, 'WARM')
+    # small sun, top-left (game lighting)
+    fill_ell(5.2, 5.0, 2.6, 2.6, lambda u, v: 'WARM' if u * u + v * v < 0.28 else 'GOLD')
+    # tiny cloud, far right, away from the ears
+    fill_ell(27.5, 6.0, 3.0, 1.4, 'WARM')
+    fill_ell(29.0, 6.8, 2.0, 1.1, 'WARM')
 
+    # ---- short, WIDE triangular ears (cat, not rabbit) ----
+    # sit low on the head, broader than they are tall
     left_ear = {
-        (8, 2): 'ORNG', (9, 2): 'ORNG',
-        (7, 3): 'WD2', (8, 3): 'ORNG', (9, 3): 'ORNG', (10, 3): 'ORNG',
-        (7, 4): 'WD2', (8, 4): 'ORNG', (9, 4): 'LPNK', (10, 4): 'ORNG', (11, 4): 'ORNG',
-        (7, 5): 'WD2', (8, 5): 'ORNG', (9, 5): 'LPNK', (10, 5): 'ORNG', (11, 5): 'ORNG',
-        (8, 6): 'ORNG', (9, 6): 'ORNG', (10, 6): 'ORNG', (11, 6): 'ORNG',
+        (8, 4): 'ORNG', (9, 4): 'ORNG',
+        (7, 5): 'ORNG', (8, 5): 'ORNG', (9, 5): 'ORNG', (10, 5): 'ORNG',
+        (6, 6): 'WD2', (7, 6): 'ORNG', (8, 6): 'ORNG', (9, 6): 'LPNK', (10, 6): 'ORNG', (11, 6): 'ORNG',
+        (6, 7): 'WD2', (7, 7): 'ORNG', (8, 7): 'LPNK', (9, 7): 'LPNK', (10, 7): 'ORNG', (11, 7): 'ORNG', (12, 7): 'ORNG',
+        (6, 8): 'WD2', (7, 8): 'ORNG', (8, 8): 'ORNG', (9, 8): 'ORNG', (10, 8): 'ORNG', (11, 8): 'ORNG',
     }
     right_ear = {
-        (22, 2): 'WD2', (23, 2): 'WD2',
-        (21, 3): 'WD2', (22, 3): 'WD2', (23, 3): 'WD1', (24, 3): 'WD1',
-        (20, 4): 'WD2', (21, 4): 'WD2', (22, 4): 'PINK', (23, 4): 'WD2', (24, 4): 'WD1',
-        (20, 5): 'WD2', (21, 5): 'WD2', (22, 5): 'PINK', (23, 5): 'WD2', (24, 5): 'WD1',
-        (20, 6): 'WD2', (21, 6): 'WD2', (22, 6): 'WD2', (23, 6): 'WD1',
+        (22, 4): 'WD2', (23, 4): 'WD1',
+        (21, 5): 'WD2', (22, 5): 'WD2', (23, 5): 'WD2', (24, 5): 'WD1',
+        (20, 6): 'WD2', (21, 6): 'WD2', (22, 6): 'PINK', (23, 6): 'WD2', (24, 6): 'WD1', (25, 6): 'WD1',
+        (19, 7): 'WD2', (20, 7): 'WD2', (21, 7): 'WD2', (22, 7): 'PINK', (23, 7): 'PINK', (24, 7): 'WD2', (25, 7): 'WD1',
+        (20, 8): 'WD2', (21, 8): 'WD2', (22, 8): 'WD2', (23, 8): 'WD2', (24, 8): 'WD1', (25, 8): 'WD1',
     }
     for (x, y), c in left_ear.items():
         setp(x, y, c)
     for (x, y), c in right_ear.items():
         setp(x, y, c)
 
+    # ---- broad, round head (wider than tall) ----
     def head_color(u, v):
-        light = -u * 0.55 - v * 0.70
-        if v > 0.28 and abs(u) < 0.42:
+        light = -u * 0.5 - v * 0.65
+        # pale muzzle
+        if v > 0.22 and abs(u) < 0.48:
             return 'WD3'
-        if light > 0.40:
+        if light > 0.42:
             return 'WD3'
-        if light > -0.20:
+        if light > -0.18:
             return 'ORNG'
         return 'WD2'
 
-    fill_ell(16.0, 16.2, 9.4, 8.6, head_color)
-    setp(14, 9, 'WD3'); setp(15, 9, 'WD3'); setp(15, 8, 'WD3')
-    setp(8, 18, 'LPNK'); setp(9, 19, 'LPNK')
-    setp(23, 18, 'PINK'); setp(22, 19, 'LPNK')
-    fill_rect(10, 14, 3, 4, 'INK'); setp(10, 14, 'WHITE'); setp(11, 15, 'DEEP')
-    fill_rect(19, 14, 3, 4, 'INK'); setp(19, 14, 'WHITE'); setp(20, 15, 'DEEP')
-    setp(15, 18, 'PINK'); setp(16, 18, 'PINK'); setp(15, 19, 'PINK')
-    setp(14, 20, 'WD0'); setp(17, 20, 'WD0'); setp(15, 21, 'WD0'); setp(16, 21, 'WD0')
-    setp(6, 17, 'INK'); setp(7, 17, 'INK'); setp(6, 19, 'INK')
-    setp(25, 17, 'INK'); setp(26, 17, 'INK'); setp(25, 19, 'INK')
-    setp(14, 24, 'WD1'); setp(15, 24, 'WD1'); setp(16, 24, 'WD1'); setp(17, 24, 'WD1')
-    fill_rect(14, 25, 4, 3, 'GOLD')
-    setp(17, 25, 'ORNG'); setp(17, 26, 'ORNG'); setp(14, 26, 'ORNG')
-    setp(15, 26, 'WARM'); setp(16, 27, 'ORNG'); setp(15, 28, 'GOLD')
+    fill_ell(16.0, 17.2, 11.6, 10.2, head_color)
+    # forehead tuft
+    setp(15, 9, 'WD3'); setp(16, 9, 'WD3'); setp(15, 8, 'WD3')
+
+    # blush
+    setp(7, 19, 'LPNK'); setp(8, 20, 'LPNK'); setp(6, 20, 'LPNK')
+    setp(24, 19, 'PINK'); setp(23, 20, 'LPNK'); setp(25, 20, 'PINK')
+
+    # ---- big eyes with top-left highlights ----
+    # 4x5 ink blocks, white spark, deep inner
+    fill_rect(8, 13, 4, 5, 'INK')
+    setp(8, 13, 'WHITE'); setp(9, 13, 'WHITE')
+    setp(8, 14, 'WHITE')
+    setp(10, 15, 'DEEP'); setp(10, 16, 'DEEP')
+    fill_rect(20, 13, 4, 5, 'INK')
+    setp(20, 13, 'WHITE'); setp(21, 13, 'WHITE')
+    setp(20, 14, 'WHITE')
+    setp(22, 15, 'DEEP'); setp(22, 16, 'DEEP')
+
+    # ---- pink triangle nose ----
+    setp(15, 19, 'PINK'); setp(16, 19, 'PINK')
+    setp(14, 20, 'PINK'); setp(15, 20, 'PINK'); setp(16, 20, 'PINK'); setp(17, 20, 'PINK')
+    setp(15, 21, 'PINK'); setp(16, 21, 'WD0')  # tiny shadow under the tip
+
+    # ---- 'w' cat mouth ----
+    #   #     #
+    #  # # # #
+    setp(13, 22, 'WD0'); setp(18, 22, 'WD0')
+    setp(14, 23, 'WD0'); setp(15, 22, 'WD0'); setp(16, 23, 'WD0'); setp(17, 22, 'WD0')
+
+    # small gold bell under the chin (app identity, doesn't hide the mouth)
+    setp(14, 26, 'WD1'); setp(15, 26, 'WD1'); setp(16, 26, 'WD1'); setp(17, 26, 'WD1')
+    fill_rect(14, 27, 4, 3, 'GOLD')
+    setp(17, 27, 'ORNG'); setp(17, 28, 'ORNG'); setp(14, 28, 'ORNG')
+    setp(15, 28, 'WARM'); setp(16, 29, 'ORNG'); setp(15, 30, 'GOLD')
 
     def is_bg(c, x, y):
         if c in ('BL1', 'BL2', 'GR1', 'GR2', 'GR3'):
             return True
-        # sun + clouds (the bell is GOLD/WARM at y >= 24)
-        if c in ('GOLD', 'WARM') and y < 23:
+        # sun + clouds (the bell is GOLD/WARM at y >= 26)
+        if c in ('GOLD', 'WARM') and y < 14:
             return True
         return False
 
@@ -127,6 +159,16 @@ def paint():
                 if 0 <= xx < N and 0 <= yy < N and is_bg(px[yy][xx], xx, yy):
                     outline.append((xx, yy))
     for x, y in outline:
+        setp(x, y, 'INK')
+
+    # Whiskers AFTER the outline so they stay 1px lines (outlining them
+    # made heavy black cheek blobs that read as a hamster / mouse).
+    for x, y in [(2,18),(3,18),(4,19),(5,19),
+                 (27,18),(28,18),(26,19),(25,19),
+                 (1,21),(2,21),(3,21),(4,21),
+                 (27,21),(28,21),(29,21),(30,21),
+                 (2,24),(3,24),(4,23),(5,23),
+                 (27,24),(28,24),(26,23),(25,23)]:
         setp(x, y, 'INK')
 
     im = Image.new('RGB', (N, N), PAL['BL2'])
@@ -166,13 +208,19 @@ def scale_padded(src, dest):
     return canvas
 
 def main():
-    out = Path(__file__).resolve().parents[1] / 'icons'
+    root = Path(__file__).resolve().parents[1]
+    out = root / 'icons'
     out.mkdir(parents=True, exist_ok=True)
+    preview = root / 'out'
+    preview.mkdir(parents=True, exist_ok=True)
     base = paint()
     scale_exact(base, 6).save(out / 'icon-192.png')
     scale_exact(base, 16).save(out / 'icon-512.png')
     scale_padded(base, 180).save(out / 'apple-touch-icon.png')
-    print('wrote', out)
+    # review sizes: ~60px home-screen-ish, plus a zoomed preview
+    base.resize((60, 60), Image.NEAREST).save(preview / 'icon_60.png')
+    scale_exact(base, 12).save(preview / 'icon_zoom.png')
+    print('wrote', out, 'and previews in', preview)
 
 if __name__ == '__main__':
     main()

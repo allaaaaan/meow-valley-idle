@@ -18,10 +18,15 @@ html,body{margin:0;width:100%;height:100%;height:100dvh;height:-webkit-fill-avai
 #top{position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);display:flex;gap:8px;align-items:center;pointer-events:none}
 #day{padding:6px 12px;font-weight:700;font-size:14px}
 #clock{padding:4px 8px;font-size:16px}
-#bwrap{margin-left:auto;display:flex;align-items:center;gap:4px;padding:2px 10px 2px 4px}
+#bwrap{margin-left:auto;display:flex;align-items:center;gap:6px;padding:3px 10px 3px 4px;pointer-events:auto;cursor:pointer}
+#basket-meta{display:flex;flex-direction:column;gap:2px;min-width:54px}
+#basket-bar{height:7px;border:2px solid #241a2e;border-radius:5px;background:#d9bfa0;overflow:hidden;width:56px}
+#basket-fill{height:100%;width:0;background:#5fa3c8;border-radius:3px}
+#bwrap.got{animation:got .35s ease}
+@keyframes got{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
 #basket{width:64px;height:32px;image-rendering:pixelated}
 #basket-word{font-size:12px;font-weight:600}
-#hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 22px);padding:8px 14px;font-size:13px;white-space:nowrap;transition:opacity .6s}
+#hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 22px);padding:8px 14px;font-size:13px;line-height:1.4;text-align:center;white-space:normal;max-width:min(360px,calc(100% - 24px));transition:opacity .6s}
 #hint.gone{opacity:0}
 #sheet{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 8px);padding:12px 14px 14px;transform:translateY(120%);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);border-radius:18px;overscroll-behavior:contain}
 #sheet.open{transform:none}
@@ -39,7 +44,7 @@ html,body{margin:0;width:100%;height:100%;height:100dvh;height:-webkit-fill-avai
 #sh-progw{height:8px;border:2px solid #241a2e;border-radius:6px;margin:8px 0;background:#d9bfa0;overflow:hidden}#sh-prog{height:100%;background:#ffd34d}
 #sh-btn{width:100%;margin-top:8px;padding:12px;font-size:16px;font-weight:800;border:2px solid #241a2e;border-radius:12px;background:#ffa531;color:#241a2e;box-shadow:0 3px 0 #241a2e}
 #sh-btn:disabled{background:#cfc8cf;color:#6b6778}
-#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 60px);transform:translate(-50%,-20px);opacity:0;padding:9px 14px;font-size:14px;font-weight:700;white-space:nowrap;background:#ffd34d}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 60px);transform:translate(-50%,-20px);opacity:0;padding:9px 14px;font-size:14px;font-weight:700;white-space:normal;text-align:center;max-width:min(340px,calc(100% - 24px));background:#ffd34d}
 #toast.show{animation:toast 3.2s ease forwards}
 @keyframes toast{0%{opacity:0;transform:translate(-50%,-20px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-10px)}}
 #diary{position:fixed;inset:0;background:rgba(36,26,46,.55);display:none;align-items:center;justify-content:center;padding:16px}
@@ -61,10 +66,10 @@ body.rec *{transition:none!important}
 body.rec #cap.on{display:block}body.rec #hint{display:none}body.rec #toast.vis{opacity:1;transform:translate(-50%,0)}
 </style></head><body>
 <canvas id="cv"></canvas>
-<div id="top"><div id="day" class="pill">喵喵谷</div><div id="clock" class="pill">☀️</div><div id="bwrap" class="pill"><canvas id="basket" width="64" height="32"></canvas><span id="basket-word"></span></div></div>
+<div id="top"><div id="day" class="pill">喵喵谷</div><div id="clock" class="pill">☀️</div><div id="bwrap" class="pill" role="button"><canvas id="basket" width="64" height="32"></canvas><div id="basket-meta"><span id="basket-word"></span><div id="basket-bar"><div id="basket-fill"></div></div></div></div></div>
 <button id="dbg-btn" class="pill">⚙️</button>
 <div id="dbg"><button id="d-ff" class="pill">⏩ 快进 1 小时</button><button id="d-tod" class="pill">🌗 时间</button><button id="d-away" class="pill">🧳 模拟离开 3 小时</button><button id="d-reset" class="pill">↺ 重置小镇</button></div>
-<div id="hint" class="pill">👆 拖动看看山谷 · 双指缩放 · 点空地盖房子</div>
+<div id="hint" class="pill">👆 拖动山谷，点空地盖房子<br>店铺会自己慢慢攒小鱼干，你不在也会攒</div>
 <div id="toast" class="pill"></div><div id="cap" class="pill"></div>
 <div id="sheet" class="pill"><button id="sh-x">✕</button>
  <div><span id="sh-name"></span><span id="sh-lv"></span></div><div id="sh-line"></div>
