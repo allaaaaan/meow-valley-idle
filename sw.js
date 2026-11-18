@@ -1,5 +1,5 @@
 // 喵喵谷 service worker. Bump CACHE when shipping a new build so old caches are dropped.
-const CACHE = 'meow-valley-v3';
+const CACHE = 'meow-valley-v4';
 const ASSETS = [
   './',
   './index.html',

@@ -89,20 +89,21 @@ function catThink(c){const home=c.d.home;
  if(pick<.90){c.state='groom';c.timer=1.7;return;}
  c.state='sleep';c.timer=4+Math.random()*6;}
 function updCat(c,dt){c.ft+=dt;
+ if(c.state==='hold'){return;}
  if(c.state==='walk'){if(!c.path.length){c.state='idle';c.timer=1+Math.random()*2;c.pose='idle';c.f=0;return;}const n=c.path[0],p=NODES[n];const dx=p[0]-c.x,dy=p[1]-c.y,d=Math.hypot(dx,dy);const sp=13*dt;
   if(d<=sp){c.x=p[0];c.y=p[1];c.node=n;c.path.shift();}else{c.x+=dx/d*sp;c.y+=dy/d*sp;if(Math.abs(dx)>.3)c.face=dx>0?1:-1;}
-  c.pose='walk';c.f=Math.floor(c.ft*10)%6;c.hidden=false;return;}
+  c.pose='walk';c.f=Math.floor(c.ft*10)%(CATS.POSES.walk||8);c.hidden=false;return;}
  c.timer-=dt;c.hidden=c.state==='inside';
- const once={flick:[.8,4],stretch:[1.3,4],groom:[1.7,6]};
+ const once={flick:[.9,CATS.POSES.flick],stretch:[1.4,CATS.POSES.stretch],groom:[1.8,CATS.POSES.groom]};
  if(once[c.state]){const [dur,n]=once[c.state];const k=1-Math.max(0,c.timer)/dur;c.pose=c.state;c.f=Math.min(n-1,Math.floor(Math.max(0,k)*n));}
- else if(c.state==='sleep'){c.pose='sleep';c.f=Math.floor(c.ft*2)%4;}
- else if(c.state==='idle'){c.pose='idle';c.f=Math.floor(c.ft*3)%6;}
- else{c.pose='sit';c.f=Math.floor(c.ft*2)%4;}
+ else if(c.state==='sleep'){c.pose='sleep';c.f=Math.floor(c.ft*3)%(CATS.POSES.sleep||6);}
+ else if(c.state==='idle'){c.pose='idle';c.f=Math.floor(c.ft*6)%(CATS.POSES.idle||8);}
+ else{c.pose='sit';c.f=Math.floor(c.ft*3)%(CATS.POSES.sit||6);}
  if(c.timer<=0)catThink(c);}
 // ---------------- carpenter builders (only while a plot is under construction) ----------------
 const builders=[];
 function nearestNode(x,y){let best='plaza',bd=1e9;for(const k of Object.keys(NODES)){const d=Math.hypot(NODES[k][0]-x,NODES[k][1]-y);if(d<bd){bd=d;best=k;}}return best;}
-function siteSpot(p){return {x:p.x-26,y:p.y+8,node:nearestNode(p.x-26,p.y+8)};}
+function siteSpot(p){return {x:p.x-32,y:p.y+14,node:nearestNode(p.x-32,p.y+14)};}
 function syncBuilders(){
  const jobs=PLOTS.filter(p=>S.plots[p.id].job);
  for(const b of builders){if(b.state==='gone')continue;if(!jobs.find(p=>p.id===b.plot)&&b.state!=='leave'){b.state='leave';b.path=route(b.node||'plaza','gate').slice(1);if(!b.path.length){b.x=NODES.gate[0];b.y=NODES.gate[1];b.state='gone';}}}
@@ -112,6 +113,7 @@ function syncBuilders(){
  for(let i=builders.length-1;i>=0;i--)if(builders[i].state==='gone')builders.splice(i,1);
 }
 function updBuilder(b,dt){b.ft+=dt;
+ if(b.state==='hold'){return;}
  const dest=(()=>{const p=PLOTS.find(q=>q.id===b.plot);return p?siteSpot(p):{x:NODES.gate[0],y:NODES.gate[1],node:'gate'};})();
  const walkTo=(tx,ty,n,done)=>{const dx=tx-b.x,dy=ty-b.y,d=Math.hypot(dx,dy),sp=16*dt;
   if(d<=sp){b.x=tx;b.y=ty;if(n)b.node=n;return done();}
@@ -123,16 +125,24 @@ function updBuilder(b,dt){b.ft+=dt;
    if(b.state==='enter'){if(walkTo(dest.x,dest.y,dest.node,()=>true)){b.state='hammer';b.ft=0;b._hf=-1;}}
    else {if(walkTo(NODES.gate[0],NODES.gate[1],'gate',()=>true))b.state='gone';}
   }
-  b.pose=b.state==='enter'?'carry':'walk';b.f=Math.floor(b.ft*10)%6;b.hidden=false;return;
+  b.pose=b.state==='enter'?'carry':'walk';b.f=Math.floor(b.ft*10)%(CATS.POSES[b.pose]||8);b.hidden=false;return;
  }
  if(b.state==='hammer'){
   if(!S.plots[b.plot]||!S.plots[b.plot].job){b.state='leave';b.path=route(b.node||dest.node,'gate').slice(1);return;}
   // stand at the site, face the building
   const p=PLOTS.find(q=>q.id===b.plot);if(p)b.face=p.x>=b.x?1:-1;
-  b.pose='hammer';b.f=Math.floor(b.ft*8)%6;b.hidden=false;
-  if(b.f===3&&b._hf!==3){SFX.tonk();const hitX=b.x+b.face*8,hitY=b.y-8;
-   for(let i=0;i<5;i++)parts.push({k:'dust',x:hitX,y:b.y-2,vx:(Math.random()-.5)*16,vy:-2-Math.random()*8,life:.5,age:0});
-   parts.push({k:'spark',x:hitX,y:hitY,vx:(Math.random()-.5)*10,vy:-6-Math.random()*6,life:.6,age:0});}
+  b.pose='hammer';b.hidden=false;
+  // Uneven timing: long anticipation hold, snappy swing, readable hit + recoil.
+  // holds (seconds): ready, wind, anticip, swing, HIT, recoil, recover, settle
+  const holds=[.10,.14,.26,.08,.14,.14,.16,.14];
+  const period=holds.reduce((a,n)=>a+n,0);
+  let t=b.ft%period, acc=0, fr=holds.length-1;
+  for(let i=0;i<holds.length;i++){acc+=holds[i];if(t<acc){fr=i;break;}}
+  b.f=fr;
+  if(b.f===4&&b._hf!==4){SFX.tonk();const hitX=b.x+b.face*14,hitY=b.y-4;
+   for(let i=0;i<7;i++)parts.push({k:'dust',x:hitX+(Math.random()-.5)*6,y:b.y-1,vx:(Math.random()-.5)*22,vy:-3-Math.random()*12,life:.55,age:0});
+   parts.push({k:'spark',x:hitX,y:hitY,vx:(Math.random()-.5)*12,vy:-8-Math.random()*8,life:.65,age:0});
+   parts.push({k:'spark',x:hitX+b.face*2,y:hitY-2,vx:b.face*6,vy:-10,life:.5,age:0});}
   b._hf=b.f;
  }}
 // ---------------- time of day ----------------
@@ -150,13 +160,15 @@ function tod(){let h;const m=todOverride||S.todMode;
  return {h,dark:Math.max(0,Math.min(1,dark)),dusk:Math.max(0,Math.min(1,dusk))};}
 // ---------------- canvas & camera ----------------
 const cv=document.getElementById('cv');let ctx;try{ctx=cv.getContext('2d',{alpha:false,colorSpace:'srgb'});}catch(e){ctx=cv.getContext('2d',{alpha:false});}if(!ctx)ctx=cv.getContext('2d');
-const world=document.createElement('canvas');world.width=WW;world.height=WH;const g=world.getContext('2d');
+const world=document.createElement('canvas');world.width=WW;world.height=WH;const g=world.getContext('2d');g.imageSmoothingEnabled=false;
 const skyCv=document.createElement('canvas');skyCv.width=WW;skyCv.height=240;const sg=skyCv.getContext('2d');
 let VW=390,VH=844,DPR=1;
 function resize(){VW=innerWidth;VH=innerHeight;DPR=Math.min(3,devicePixelRatio||1);cv.width=VW*DPR;cv.height=VH*DPR;cv.style.width=VW+'px';cv.style.height=VH+'px';clampCam();}
 const cam={x:175,y:560,z:2,vx:0,vy:0};let fly=null;
 function zmin(){return Math.max(VW/WW,0.6);} const ZMAX=6;
-function clampCam(){cam.z=Math.max(zmin(),Math.min(ZMAX,cam.z));const hw=VW/2/cam.z,hh=VH/2/cam.z;cam.x=hw*2>=WW?WW/2:Math.max(hw,Math.min(WW-hw,cam.x));cam.y=hh*2>=WH?WH/2:Math.max(hh,Math.min(WH-hh,cam.y));}
+// Snap zoom so each world pixel covers an integer number of device pixels (no half-pixel blur).
+function snapZ(z){return Math.max(zmin(),Math.min(ZMAX,Math.round(z*DPR)/DPR));}
+function clampCam(){cam.z=snapZ(cam.z);const hw=VW/2/cam.z,hh=VH/2/cam.z;cam.x=hw*2>=WW?WW/2:Math.max(hw,Math.min(WW-hw,cam.x));cam.y=hh*2>=WH?WH/2:Math.max(hh,Math.min(WH-hh,cam.y));}
 const toWorld=(sx,sy)=>[cam.x+(sx-VW/2)/cam.z,cam.y+(sy-VH/2)/cam.z];
 const toScreen=(wx,wy)=>[(wx-cam.x)*cam.z+VW/2,(wy-cam.y)*cam.z+VH/2];
 function flyTo(x,y,z,dur){fly={x0:cam.x,y0:cam.y,z0:cam.z,x,y,z:z||cam.z,t:0,dur:dur||.9};}
@@ -212,7 +224,7 @@ let T=0,skyKey='';
 function drawSky(td){const key=(td.dark>.55?'n':td.dusk>.4?'d':'y');if(key!==skyKey){skyKey=key;sg.clearRect(0,0,WW,240);FX_.sky(sg,WW,240,td,T);}}
 function render(dt){T+=dt;const td=tod();drawSky(td);
  // sky dynamic layer on screen later; world:
- g.clearRect(0,0,WW,WH);g.drawImage(getTerrain(),0,0);
+ g.imageSmoothingEnabled=false;g.clearRect(0,0,WW,WH);g.drawImage(getTerrain(),0,0);
  // water shimmer
  const tw=T*14;for(const [x,y,s,h] of WATER){const v=(s*.35-tw+h*9)%9;if(v<0?v+9<.9:v<.9){g.fillStyle=PAL[h<.5?C.BL2:C.WHITE];g.fillRect(x,y,1,1);}}
  for(const [x,y] of FALLS){const v=((y-T*30+x*1.7)%6+6)%6;g.fillStyle=PAL[v<1.5?C.WHITE:v<3.5?C.BL2:C.BL1];g.fillRect(x,y,1,1);}
@@ -223,14 +235,16 @@ function render(dt){T+=dt;const td=tod();drawSky(td);
  for(const d of DECOR){if(P<d.p||!FX_.DEC[d.k])continue;ents.push({y:d.y,draw:()=>{const D=FX_.DEC[d.k];g.drawImage(D.cv,Math.round(d.x-D.w/2),d.y-D.h+1);if(d.k==='fountain'){for(let i=0;i<5;i++){const a=(T*3+i*1.3)%3;FX_.px(g,d.x-3+i*1.5+Math.sin(i)*2,d.y-D.h+2-a*2+a*a*.4,C.BL2);}FX_.px(g,d.x,d.y-D.h-1+Math.sin(T*6),C.WHITE);}}});}
  for(const p of PLOTS)ents.push({y:p.y,draw:()=>drawPlot(p)});
  function catSprite(c){const F=CATS.frames(c.d?c.d.coat:'builder',c.d&&c.d.acc,c.d&&c.d.shape);const pose=F[c.pose]||F.sit;const fr=pose[c.f%pose.length][c.face>0?0:1];return fr;}
- function drawOneCat(c){const fr=catSprite(c);g.fillStyle='rgba(35,73,61,.45)';g.fillRect(Math.round(c.x)-6,Math.round(c.y),13,1);g.drawImage(fr,Math.round(c.x)-CATS.AX,Math.round(c.y)-CATS.AY);
+ function drawOneCat(c){const fr=catSprite(c);const cx=Math.round(c.x),cy=Math.round(c.y);
+  g.save();g.fillStyle='rgba(36,26,46,.42)';g.beginPath();g.ellipse(cx,cy+1,11,3.2,0,0,Math.PI*2);g.fill();g.restore();
+  g.imageSmoothingEnabled=false;g.drawImage(fr,cx-CATS.AX,cy-CATS.AY);
   if(c.pose==='sleep'){const zt=(T*1.2+c.x)%3;const zx=c.x+6+zt*3,zy=c.y-CATS.AY+2-zt*5;g.fillStyle=PAL[C.WHITE];g.fillRect(zx,zy,3,1);g.fillRect(zx+2,zy-2,1,2);g.fillRect(zx,zy-3,3,1);}}
  for(const c of cats)if(!c.hidden)ents.push({y:c.y,draw:()=>drawOneCat(c)});
  for(const b of builders)if(!b.hidden&&b.state!=='gone')ents.push({y:b.y,draw:()=>drawOneCat(b)});
  // mochi's special sleeping spot on the inn
  const inn=PLOTS.find(p=>p.id==='inn');const im=art('inn',lv('inn')).meta;
  ents.sort((a,b)=>a.y-b.y).forEach(e=>e.draw());
- if(im.sleep&&!S.plots.inn.job){const F=CATS.frames('white','none','round');const sl=F.sleep[Math.floor(T*1.2)%4][0];g.drawImage(sl,inn.x-AX+im.sleep[0]-CATS.AX,inn.y-AY+im.sleep[1]-CATS.AY);const zt=T%3;const zx=inn.x-AX+im.sleep[0]+6+zt*3,zy=inn.y-AY+im.sleep[1]-CATS.AY+2-zt*5;g.fillStyle=PAL[C.WHITE];g.fillRect(zx,zy,3,1);g.fillRect(zx+2,zy-2,1,2);g.fillRect(zx,zy-3,3,1);}
+ if(im.sleep&&!S.plots.inn.job){const F=CATS.frames('white','none','round');const sl=F.sleep[Math.floor(T*1.2)%(CATS.POSES.sleep||6)][0];g.drawImage(sl,inn.x-AX+im.sleep[0]-CATS.AX,inn.y-AY+im.sleep[1]-CATS.AY);const zt=T%3;const zx=inn.x-AX+im.sleep[0]+6+zt*3,zy=inn.y-AY+im.sleep[1]-CATS.AY+2-zt*5;g.fillStyle=PAL[C.WHITE];g.fillRect(zx,zy,3,1);g.fillRect(zx+2,zy-2,1,2);g.fillRect(zx,zy-3,3,1);}
  // smoke + particles
  smokeT+=dt;if(smokeT>.35){smokeT=0;for(const p of PLOTS){if(S.plots[p.id].job||lv(p.id)===0)continue;for(const s of art(p.type,lv(p.id)).meta.smoke)if(Math.random()<.8)spawnSmoke(p.x-AX+s[0],p.y-AY+s[1]);}}
  for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.age+=dt;if(q.age>q.life){parts.splice(i,1);continue;}q.x+=q.vx*dt;q.y+=q.vy*dt;const k=q.age/q.life;
@@ -255,8 +269,8 @@ function render(dt){T+=dt;const td=tod();drawSky(td);
   g.globalAlpha=1;}
  // ---- screen ----
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.imageSmoothingEnabled=false;ctx.fillStyle=PAL[td.dark>.55?C.NV:td.dusk>.4?C.PU1:C.BL2];ctx.fillRect(0,0,VW,VH);
- const ox=VW/2-cam.x*cam.z,oy=VH/2-cam.y*cam.z;
- ctx.save();ctx.translate(ox,oy);ctx.scale(cam.z,cam.z);ctx.drawImage(skyCv,0,0);
+ const ox=Math.round((VW/2-cam.x*cam.z)*DPR)/DPR,oy=Math.round((VH/2-cam.y*cam.z)*DPR)/DPR;
+ ctx.save();ctx.translate(ox,oy);ctx.scale(cam.z,cam.z);ctx.imageSmoothingEnabled=false;ctx.drawImage(skyCv,0,0);
  // sun/moon + stars + clouds (sky space)
  if(td.dark>.55){for(let i=0;i<40;i++){const tw2=Math.sin(T*2+i*7)>.6;ctx.fillStyle=PAL[tw2?C.WHITE:C.ST1];ctx.fillRect(Math.floor(hash(i,1,4)*WW),Math.floor(hash(i,2,4)*150),1,1);}
   ctx.fillStyle=PAL[C.WARM];ctx.beginPath();ctx.arc(78,52,9,0,7);ctx.fill();ctx.fillStyle=PAL[C.NV];ctx.beginPath();ctx.arc(83,48,8,0,7);ctx.fill();}
